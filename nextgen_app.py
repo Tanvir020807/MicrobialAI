@@ -9,7 +9,8 @@ import plotly.graph_objects as go
 st.set_page_config(
     page_title="MicrobialAI NextGen",
     page_icon="🧬",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 # =========================================================
@@ -32,54 +33,66 @@ st.markdown("""
 
 section[data-testid="stSidebar"]{
     background:#050b16;
-    border-right:1px solid rgba(255,255,255,0.08);
+    border-right:1px solid rgba(255,255,255,0.06);
+}
+
+.block-container{
+    padding-top:2rem;
+    padding-bottom:1rem;
+    max-width:1500px;
 }
 
 h1{
     color:white;
-    font-size:52px !important;
+    font-size:40px !important;
     font-weight:800;
+    margin-bottom:0px;
 }
 
 .metric-card{
     background:rgba(255,255,255,0.04);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:18px;
-    padding:22px;
-    backdrop-filter:blur(14px);
-    box-shadow:0px 0px 24px rgba(0,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:16px;
+    padding:14px;
+    backdrop-filter:blur(10px);
 }
 
 .metric-title{
     color:#94a3b8;
-    font-size:15px;
+    font-size:14px;
+    margin-bottom:8px;
 }
 
 .metric-value{
     color:#67e8f9;
-    font-size:34px;
-    font-weight:800;
+    font-size:24px;
+    font-weight:700;
 }
 
 .phase-card{
     background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:14px;
-    padding:16px;
-    margin-bottom:12px;
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:10px;
 }
 
 .insight-card{
     background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:16px;
-    padding:18px;
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:14px;
+    padding:14px;
     text-align:center;
 }
 
 .big-glow{
     color:#67e8f9;
-    text-shadow:0px 0px 25px rgba(0,255,255,0.7);
+    text-shadow:0px 0px 18px rgba(0,255,255,0.5);
+}
+
+.small-text{
+    color:#cbd5e1;
+    font-size:15px;
 }
 
 </style>
@@ -190,8 +203,6 @@ K = params["K"]
 r = params["r"]
 t0 = params["t0"]
 
-# Environmental adjustments
-
 if temp < 30:
     r *= 0.75
 
@@ -205,7 +216,7 @@ K *= nutrient
 
 growth = K / (1 + np.exp(-r * (time - t0)))
 
-# Phase logic
+# Phase Logic
 
 if time < 8:
     phase = "Lag Phase"
@@ -223,21 +234,22 @@ else:
 # MAIN LAYOUT
 # =========================================================
 
-left, right = st.columns([3,1])
+left, right = st.columns([4.5,1.5])
 
 # =========================================================
-# LEFT PANEL
+# LEFT
 # =========================================================
 
 with left:
 
     st.markdown(
-        "<h1>AI-Assisted <span class='big-glow'>Microbial Growth Predictor</span></h1>",
+        "<h1>🧬 <span class='big-glow'>MicrobialAI</span></h1>",
         unsafe_allow_html=True
     )
 
-    st.write(
-        "Predict and analyze microbial growth under different environmental conditions."
+    st.markdown(
+        "<div class='small-text'>AI-Assisted Microbial Growth Kinetics Platform</div>",
+        unsafe_allow_html=True
     )
 
     st.write("")
@@ -273,7 +285,7 @@ with left:
     with c4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Growth Rate (r)</div>
+            <div class="metric-title">Growth Rate</div>
             <div class="metric-value">{round(r,3)}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -296,7 +308,7 @@ with left:
             y=curve,
             mode='lines',
             line=dict(
-                color='#3b82f6',
+                color='#38bdf8',
                 width=4
             ),
             name='Growth Curve'
@@ -310,34 +322,34 @@ with left:
             mode='markers',
             marker=dict(
                 color='#22c55e',
-                size=14
+                size=12
             ),
             name='Current Point'
         )
     )
 
-    # Phase regions
+    # Phase zones
 
     fig.add_vrect(
         x0=0,
         x1=10,
-        fillcolor="gray",
-        opacity=0.08,
+        fillcolor="purple",
+        opacity=0.05,
         line_width=0
     )
 
     fig.add_vrect(
         x0=10,
         x1=25,
-        fillcolor="purple",
-        opacity=0.08,
+        fillcolor="blue",
+        opacity=0.05,
         line_width=0
     )
 
     fig.add_vrect(
         x0=25,
         x1=40,
-        fillcolor="yellow",
+        fillcolor="green",
         opacity=0.05,
         line_width=0
     )
@@ -358,13 +370,20 @@ with left:
 
         plot_bgcolor="rgba(0,0,0,0)",
 
-        title=f"{microbe} Growth Curve",
+        height=480,
 
-        height=620,
+        margin=dict(
+            l=10,
+            r=10,
+            t=30,
+            b=10
+        ),
 
         xaxis_title="Time (hours)",
 
-        yaxis_title="Optical Density (OD600)"
+        yaxis_title="Optical Density (OD600)",
+
+        font=dict(size=14)
     )
 
     st.plotly_chart(
@@ -374,15 +393,13 @@ with left:
 
     # INSIGHTS
 
-    st.markdown("## Growth Insights")
-
     i1, i2, i3, i4 = st.columns(4)
 
     with i1:
         st.markdown("""
         <div class="insight-card">
-        <h4>🧪 Optimal Conditions</h4>
-        <p>Conditions are favorable for growth.</p>
+        <h4>🧪 Optimal</h4>
+        <p>Conditions favorable.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -390,15 +407,15 @@ with left:
         st.markdown("""
         <div class="insight-card">
         <h4>⚡ Fast Growth</h4>
-        <p>Exponential phase predicted.</p>
+        <p>Rapid exponential growth.</p>
         </div>
         """, unsafe_allow_html=True)
 
     with i3:
         st.markdown("""
         <div class="insight-card">
-        <h4>📈 High Biomass</h4>
-        <p>High carrying capacity detected.</p>
+        <h4>📈 Biomass</h4>
+        <p>High carrying capacity.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -406,7 +423,7 @@ with left:
         st.markdown("""
         <div class="insight-card">
         <h4>💡 Recommendation</h4>
-        <p>Maintain current incubation conditions.</p>
+        <p>Maintain current setup.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -416,39 +433,39 @@ with left:
 
 with right:
 
-    st.markdown("## Growth Phases")
+    st.markdown("### Growth Phases")
 
     st.markdown("""
     <div class="phase-card">
-    <h4>🟣 Lag Phase</h4>
-    <p>Cells adapting to environment.</p>
+    <b>🟣 Lag Phase</b><br>
+    Adaptation stage
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="phase-card">
-    <h4>🟢 Log Phase</h4>
-    <p>Rapid exponential growth.</p>
+    <b>🟢 Log Phase</b><br>
+    Exponential division
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="phase-card">
-    <h4>🟡 Stationary Phase</h4>
-    <p>Nutrient depletion begins.</p>
+    <b>🟡 Stationary</b><br>
+    Nutrient limitation
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="phase-card">
-    <h4>🔴 Death Phase</h4>
-    <p>Cell death exceeds growth.</p>
+    <b>🔴 Death Phase</b><br>
+    Cell decline
     </div>
     """, unsafe_allow_html=True)
 
     st.write("")
 
-    st.markdown("## Model Summary")
+    st.markdown("### Model Summary")
 
     st.markdown(f"""
     <div class="phase-card">
@@ -461,7 +478,7 @@ with right:
 
     <p><b>Lag Time:</b> {t0} hrs</p>
 
-    <p><b>Microbe Type:</b> {params['type']}</p>
+    <p><b>Type:</b> {params['type']}</p>
 
     </div>
     """, unsafe_allow_html=True)
@@ -473,5 +490,5 @@ with right:
 st.markdown("---")
 
 st.caption(
-    "MicrobialAI • AI-Powered Computational Microbiology Platform"
+    "MicrobialAI • Computational Microbiology Platform"
 )
