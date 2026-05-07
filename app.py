@@ -4,16 +4,18 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+
 st.set_page_config(
     page_title="MicrobialAI Growth Predictor",
     page_icon="🧬",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
 
 MICROBES = {
     "Escherichia coli": {
         "type": "Gram-negative bacterium",
-        "color": "#22c55e",
         "base_rate": 1.05,
         "max_od": 1.00,
         "opt_temp": 37,
@@ -22,7 +24,6 @@ MICROBES = {
     },
     "Bacillus subtilis": {
         "type": "Gram-positive bacterium",
-        "color": "#fbbf24",
         "base_rate": 0.82,
         "max_od": 0.92,
         "opt_temp": 35,
@@ -31,7 +32,6 @@ MICROBES = {
     },
     "Staphylococcus aureus": {
         "type": "Gram-positive cocci",
-        "color": "#8b5cf6",
         "base_rate": 0.72,
         "max_od": 0.84,
         "opt_temp": 37,
@@ -40,7 +40,6 @@ MICROBES = {
     },
     "Pseudomonas aeruginosa": {
         "type": "Gram-negative bacterium",
-        "color": "#06b6d4",
         "base_rate": 0.88,
         "max_od": 0.95,
         "opt_temp": 33,
@@ -49,7 +48,6 @@ MICROBES = {
     },
     "Lactobacillus acidophilus": {
         "type": "Lactic acid bacterium",
-        "color": "#ec4899",
         "base_rate": 0.68,
         "max_od": 0.78,
         "opt_temp": 37,
@@ -58,7 +56,6 @@ MICROBES = {
     },
     "Saccharomyces cerevisiae": {
         "type": "Yeast",
-        "color": "#f59e0b",
         "base_rate": 0.60,
         "max_od": 0.88,
         "opt_temp": 30,
@@ -66,6 +63,7 @@ MICROBES = {
         "lag_time": 10
     }
 }
+
 
 st.markdown("""
 <style>
@@ -111,7 +109,8 @@ section[data-testid="stSidebar"] {
 .metric-card,
 .chart-card,
 .side-card,
-.insight-card {
+.insight-card,
+.phase-panel {
     background: linear-gradient(145deg, rgba(15, 23, 42, 0.97), rgba(8, 18, 34, 0.97));
     border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
@@ -197,11 +196,8 @@ section[data-testid="stSidebar"] {
     margin-bottom: 10px;
 }
 
-/* IMPORTANT: This fixes Growth Phase Information */
+/* Growth Phase Information fixed section */
 .phase-panel {
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.97), rgba(8, 18, 34, 0.97));
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 12px;
     padding: 18px;
     margin-bottom: 15px;
 }
@@ -266,6 +262,11 @@ section[data-testid="stSidebar"] {
     font-size: 12px;
     line-height: 1.5;
     margin-top: 4px;
+}
+
+.side-card {
+    padding: 18px;
+    margin-bottom: 15px;
 }
 
 .summary-row {
@@ -476,7 +477,10 @@ st.sidebar.markdown("""
 <div class="logo-sub">Growth Predictor</div>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown('<div class="sidebar-heading">1. Select Microorganism</div>', unsafe_allow_html=True)
+st.sidebar.markdown(
+    '<div class="sidebar-heading">1. Select Microorganism</div>',
+    unsafe_allow_html=True
+)
 
 microbe_name = st.sidebar.selectbox(
     "Microorganism",
@@ -485,7 +489,10 @@ microbe_name = st.sidebar.selectbox(
 
 st.sidebar.caption(MICROBES[microbe_name]["type"])
 
-st.sidebar.markdown('<div class="sidebar-heading">2. Environmental Conditions</div>', unsafe_allow_html=True)
+st.sidebar.markdown(
+    '<div class="sidebar-heading">2. Environmental Conditions</div>',
+    unsafe_allow_html=True
+)
 
 incubation_time = st.sidebar.slider("Incubation Time (hours)", 0, 48, 24)
 temperature = st.sidebar.slider("Temperature (°C)", 15, 50, MICROBES[microbe_name]["opt_temp"])
@@ -495,6 +502,7 @@ nutrient = st.sidebar.slider("Nutrient Concentration", 0.1, 2.0, 1.0, 0.1)
 st.sidebar.caption("Relative scale: 0.1 - 2.0")
 st.sidebar.button("Predict Growth")
 st.sidebar.button("Reset All")
+
 
 growth_rate, max_od, lag_time, condition_score = calculate_growth(
     microbe_name,
@@ -513,6 +521,7 @@ df = pd.DataFrame({
     "OD600": od_values
 })
 
+
 st.markdown("""
 <div class="hero">
     <h1>AI-Assisted Microbial Growth Predictor</h1>
@@ -520,6 +529,7 @@ st.markdown("""
     <div class="about-btn">ⓘ About Model</div>
 </div>
 """, unsafe_allow_html=True)
+
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -534,6 +544,7 @@ with col3:
 
 with col4:
     metric_card("Growth Rate (r)", f"{growth_rate:.3f} /hr", "Intrinsic Growth Rate", "pink")
+
 
 st.write("")
 
@@ -555,7 +566,10 @@ with main_col:
 
     st.write("")
 
-    st.markdown('<div class="chart-card"><div class="card-title">Growth Insights</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="chart-card"><div class="card-title">Growth Insights</div>',
+        unsafe_allow_html=True
+    )
 
     i1, i2, i3, i4 = st.columns(4)
 
@@ -593,7 +607,9 @@ with main_col:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 with side_col:
+    # Fixed: this must be st.markdown with unsafe_allow_html=True.
     growth_phase_information()
 
     st.markdown(f"""
