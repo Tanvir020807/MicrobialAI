@@ -1,17 +1,23 @@
 import math
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+
+# -----------------------------
+# Page setup
+# -----------------------------
 st.set_page_config(
     page_title="MicrobialAI Growth Predictor",
-    page_icon=":dna:",
+    page_icon="🧬",
     layout="wide"
 )
 
+
 # -----------------------------
-# Microorganism data
+# Microorganism database
 # -----------------------------
 MICROORGANISMS = {
     "Escherichia coli": {
@@ -64,24 +70,28 @@ MICROORGANISMS = {
     }
 }
 
+
 # -----------------------------
-# Styling
+# CSS styling
 # -----------------------------
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #050914, #08172d);
+    background:
+        radial-gradient(circle at top left, rgba(36, 214, 255, 0.16), transparent 32rem),
+        linear-gradient(135deg, #050914, #08172d);
     color: white;
 }
 
 section[data-testid="stSidebar"] {
-    background-color: #071225;
-    border-right: 1px solid rgba(80, 150, 255, 0.25);
+    background: linear-gradient(180deg, #071225, #050914);
+    border-right: 1px solid rgba(120, 160, 255, 0.22);
 }
 
 .main-title {
-    font-size: 52px;
+    font-size: 54px;
     font-weight: 800;
+    line-height: 1;
     background: linear-gradient(90deg, #25e0f2, #477cff, #a75cff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -90,6 +100,7 @@ section[data-testid="stSidebar"] {
 .sub-title {
     color: #b7c7d9;
     font-size: 20px;
+    margin-top: 6px;
 }
 
 .card {
@@ -97,7 +108,8 @@ section[data-testid="stSidebar"] {
     padding: 22px;
     border-radius: 14px;
     border: 1px solid rgba(120, 160, 255, 0.25);
-    box-shadow: 0px 12px 35px rgba(0,0,0,0.25);
+    box-shadow: 0px 12px 35px rgba(0, 0, 0, 0.28);
+    min-height: 130px;
 }
 
 .metric-label {
@@ -107,25 +119,19 @@ section[data-testid="stSidebar"] {
 
 .metric-value {
     color: #24d6ff;
-    font-size: 34px;
+    font-size: 32px;
     font-weight: 800;
+    margin-top: 12px;
 }
 
-.green {
-    color: #31e981;
-}
-
-.yellow {
-    color: #ffd34d;
-}
-
-.pink {
-    color: #ff4c87;
-}
+.green { color: #31e981; }
+.yellow { color: #ffd34d; }
+.pink { color: #ff4c87; }
+.blue { color: #24d6ff; }
 
 .info-box {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(120,160,255,0.18);
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(120,160,255,0.20);
     border-radius: 10px;
     padding: 14px;
     margin-bottom: 10px;
@@ -135,18 +141,35 @@ section[data-testid="stSidebar"] {
     color: #b7c7d9;
     font-size: 14px;
 }
+
+hr {
+    border-color: rgba(120, 160, 255, 0.18);
+}
+
+.stButton > button {
+    background: linear-gradient(90deg, #1479ff, #a829e8);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 # -----------------------------
 # Model functions
 # -----------------------------
 def bell_factor(value, optimum, tolerance):
+    """
+    Gives a value between 0 and 1.
+    The score is highest when the input is close to the optimum.
+    """
     score = math.exp(-((value - optimum) / tolerance) ** 2)
     return max(0.05, min(1.0, score))
 
 
-def calculate_parameters(microbe_name, temperature, ph, nutrient):
+def calculate_growth_parameters(microbe_name, temperature, ph, nutrient):
     microbe = MICROORGANISMS[microbe_name]
 
     temp_factor = bell_factor(temperature, microbe["opt_temp"], 10)
@@ -154,23 +177,31 @@ def calculate_parameters(microbe_name, temperature, ph, nutrient):
     nutrient_factor = max(0.10, min(1.25, nutrient))
 
     condition_score = (
-        temp_factor * 0.40 +
-        ph_factor * 0.35 +
-        min(nutrient_factor, 1.0) * 0.25
+        temp_factor * 0.40
+        + ph_factor * 0.35
+        + min(nutrient_factor, 1.0) * 0.25
     )
 
     growth_rate = microbe["base_rate"] * temp_factor * ph_factor * nutrient_factor
     carrying_capacity = microbe["carrying_capacity"] * (0.55 + 0.45 * nutrient_factor)
     lag_time = microbe["lag_time"] + (1 - condition_score) * 8
 
-    return growth_rate, carrying_capacity, lag_time, condition_score, temp_factor, ph_factor, nutrient_factor
+    return {
+        "growth_rate": growth_rate,
+        "carrying_capacity": carrying_capacity,
+        "lag_time": lag_time,
+        "condition_score": condition_score,
+        "temp_factor": temp_factor,
+        "ph_factor": ph_factor,
+        "nutrient_factor": nutrient_factor
+    }
 
 
 def logistic_growth(time, growth_rate, carrying_capacity, lag_time):
     return carrying_capacity / (1 + np.exp(-growth_rate * (time - lag_time)))
 
 
-def get_phase(time, lag_time):
+def get_growth_phase(time, lag_time):
     if time < lag_time:
         return "Lag Phase"
     elif time < 24:
@@ -181,11 +212,92 @@ def get_phase(time, lag_time):
         return "Death Phase"
 
 
+def create_growth_chart(df, incubation_time, current_od, lag_time, carrying_capacity):
+    fig = go.Figure()
+
+    phase_regions = [
+        ("Lag Phase", 0, lag_time, "rgba(160,102,255,0.18)"),
+        ("Log Phase", lag_time, 24, "rgba(36,214,255,0.14)"),
+        ("Stationary Phase", 24, 40, "rgba(49,233,129,0.14)"),
+        ("Death Phase", 40, 48, "rgba(255,76,135,0.14)")
+    ]
+
+    for phase_name, start, end, color in phase_regions:
+        fig.add_vrect(
+            x0=start,
+            x1=end,
+            fillcolor=color,
+            opacity=1,
+            line_width=0,
+            annotation_text=phase_name,
+            annotation_position="top"
+        )
+
+    fig.add_trace(go.Scatter(
+        x=df["Time"],
+        y=df["OD600"],
+        mode="lines",
+        name="Growth Curve",
+        line=dict(color="#24d6ff", width=4)
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=[incubation_time],
+        y=[current_od],
+        mode="markers",
+        name="Current Point",
+        marker=dict(size=15, color="#31e981", line=dict(color="white", width=1))
+    ))
+
+    fig.update_layout(
+        height=560,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(5,9,20,0.65)",
+        font=dict(color="white"),
+        xaxis_title="Time (hours)",
+        yaxis_title="Optical Density (OD600)",
+        xaxis=dict(range=[0, 48], gridcolor="rgba(255,255,255,0.12)"),
+        yaxis=dict(
+            range=[0, max(1.25, carrying_capacity + 0.2)],
+            gridcolor="rgba(255,255,255,0.12)"
+        ),
+        legend=dict(orientation="h", y=-0.15)
+    )
+
+    return fig
+
+
+def create_condition_chart(temp_factor, ph_factor, nutrient_factor):
+    fig = go.Figure(go.Bar(
+        x=[temp_factor, ph_factor, min(nutrient_factor, 1.0)],
+        y=["Temperature", "pH", "Nutrients"],
+        orientation="h",
+        marker_color=["#24d6ff", "#31e981", "#ffd34d"],
+        text=[
+            f"{temp_factor * 100:.0f}%",
+            f"{ph_factor * 100:.0f}%",
+            f"{min(nutrient_factor, 1.0) * 100:.0f}%"
+        ],
+        textposition="auto"
+    ))
+
+    fig.update_layout(
+        height=260,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(5,9,20,0.65)",
+        font=dict(color="white"),
+        xaxis=dict(range=[0, 1], title="Suitability"),
+        yaxis=dict(title="")
+    )
+
+    return fig
+
+
 # -----------------------------
-# Sidebar
+# Sidebar inputs
 # -----------------------------
 st.sidebar.markdown("## 🧬 MicrobialAI")
-st.sidebar.caption("Growth Predictor")
+st.sidebar.caption("Growth Prediction Project")
 
 microbe_name = st.sidebar.radio(
     "1. Select Microorganism",
@@ -197,12 +309,14 @@ st.sidebar.caption(MICROORGANISMS[microbe_name]["type"])
 st.sidebar.markdown("### 2. Environmental Conditions")
 
 incubation_time = st.sidebar.slider("Incubation Time (hours)", 0, 48, 24)
+
 temperature = st.sidebar.slider(
     "Temperature (°C)",
     15,
     50,
     MICROORGANISMS[microbe_name]["opt_temp"]
 )
+
 ph = st.sidebar.slider(
     "pH",
     4.0,
@@ -210,6 +324,7 @@ ph = st.sidebar.slider(
     MICROORGANISMS[microbe_name]["opt_ph"],
     0.1
 )
+
 nutrient = st.sidebar.slider(
     "Nutrient Concentration",
     0.1,
@@ -218,19 +333,25 @@ nutrient = st.sidebar.slider(
     0.1
 )
 
-predict_button = st.sidebar.button("Predict Growth")
+st.sidebar.button("Predict Growth")
 
-st.sidebar.caption("Relative nutrient scale: 0.1 to 2.0")
+st.sidebar.caption("Nutrient scale: 0.1 = low, 1.0 = normal, 2.0 = high")
+
 
 # -----------------------------
 # Calculations
 # -----------------------------
-growth_rate, carrying_capacity, lag_time, condition_score, temp_factor, ph_factor, nutrient_factor = calculate_parameters(
+params = calculate_growth_parameters(
     microbe_name,
     temperature,
     ph,
     nutrient
 )
+
+growth_rate = params["growth_rate"]
+carrying_capacity = params["carrying_capacity"]
+lag_time = params["lag_time"]
+condition_score = params["condition_score"]
 
 time_values = np.linspace(0, 48, 250)
 od_values = logistic_growth(time_values, growth_rate, carrying_capacity, lag_time)
@@ -242,12 +363,13 @@ current_od = logistic_growth(
     lag_time
 )
 
-phase = get_phase(incubation_time, lag_time)
+phase = get_growth_phase(incubation_time, lag_time)
 
 df = pd.DataFrame({
     "Time": time_values,
     "OD600": od_values
 })
+
 
 # -----------------------------
 # Header
@@ -257,12 +379,13 @@ st.markdown(
     '<div class="sub-title">AI-Assisted Microbial Growth Prediction Platform</div>',
     unsafe_allow_html=True
 )
-st.write("Predict and analyze microbial growth using a simple biotechnology model.")
+st.write("Predict microbial growth using temperature, pH, nutrients, and incubation time.")
 
 st.write("")
 
+
 # -----------------------------
-# Metrics
+# Top metrics
 # -----------------------------
 col1, col2, col3, col4 = st.columns(4)
 
@@ -300,63 +423,24 @@ with col4:
 
 st.write("")
 
+
 # -----------------------------
-# Growth curve
+# Main layout
 # -----------------------------
 left, right = st.columns([2.2, 1])
 
 with left:
     st.markdown("### Predicted Growth Curve")
 
-    fig = go.Figure()
-
-    phase_regions = [
-        ("Lag Phase", 0, lag_time, "rgba(160,102,255,0.18)"),
-        ("Log Phase", lag_time, 24, "rgba(36,214,255,0.14)"),
-        ("Stationary Phase", 24, 40, "rgba(49,233,129,0.14)"),
-        ("Death Phase", 40, 48, "rgba(255,76,135,0.14)")
-    ]
-
-    for name, start, end, color in phase_regions:
-        fig.add_vrect(
-            x0=start,
-            x1=end,
-            fillcolor=color,
-            opacity=1,
-            line_width=0,
-            annotation_text=name,
-            annotation_position="top"
-        )
-
-    fig.add_trace(go.Scatter(
-        x=df["Time"],
-        y=df["OD600"],
-        mode="lines",
-        name="Growth Curve",
-        line=dict(color="#24d6ff", width=4)
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=[incubation_time],
-        y=[current_od],
-        mode="markers",
-        name="Current Point",
-        marker=dict(size=14, color="#31e981")
-    ))
-
-    fig.update_layout(
-        height=560,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(5,9,20,0.65)",
-        font=dict(color="white"),
-        xaxis_title="Time (hours)",
-        yaxis_title="Optical Density (OD600)",
-        xaxis=dict(range=[0, 48], gridcolor="rgba(255,255,255,0.12)"),
-        yaxis=dict(range=[0, max(1.25, carrying_capacity + 0.2)], gridcolor="rgba(255,255,255,0.12)"),
-        legend=dict(orientation="h", y=-0.15)
+    growth_fig = create_growth_chart(
+        df,
+        incubation_time,
+        current_od,
+        lag_time,
+        carrying_capacity
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(growth_fig, use_container_width=True)
 
 with right:
     st.markdown("### Growth Phase Information")
@@ -364,30 +448,35 @@ with right:
     st.markdown("""
     <div class="info-box">
         <b>Lag Phase</b><br>
-        <span class="small-text">Cells adjust to the environment.</span>
+        <span class="small-text">Cells adjust to the environment before rapid growth starts.</span>
     </div>
+
     <div class="info-box">
         <b>Log Phase</b><br>
-        <span class="small-text">Cells divide rapidly.</span>
+        <span class="small-text">Cells divide quickly and population increases rapidly.</span>
     </div>
+
     <div class="info-box">
         <b>Stationary Phase</b><br>
-        <span class="small-text">Nutrients become limited.</span>
+        <span class="small-text">Growth slows because nutrients become limited.</span>
     </div>
+
     <div class="info-box">
         <b>Death Phase</b><br>
-        <span class="small-text">Cell death exceeds growth.</span>
+        <span class="small-text">More cells die than divide due to stress or waste buildup.</span>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("### Model Summary")
+
     st.markdown(f"""
-    <div class="info-box">Model: Logistic Growth</div>
+    <div class="info-box">Model Type: Logistic Growth</div>
     <div class="info-box">Equation: K / (1 + e<sup>-r(t-t0)</sup>)</div>
     <div class="info-box">Lag Time: {lag_time:.1f} hours</div>
     <div class="info-box">Growth Rate: {growth_rate:.3f} /hr</div>
     <div class="info-box">Carrying Capacity: {carrying_capacity:.3f} OD</div>
     """, unsafe_allow_html=True)
+
 
 # -----------------------------
 # Insights
@@ -395,21 +484,21 @@ with right:
 st.write("")
 st.markdown("### Growth Insights")
 
-i1, i2, i3, i4 = st.columns(4)
-
 if condition_score >= 0.78:
-    condition_msg = "Conditions are close to optimal."
+    condition_msg = "Conditions are close to optimal for this microorganism."
 elif condition_score >= 0.50:
-    condition_msg = "Growth is possible, but not perfect."
+    condition_msg = "Growth is possible, but conditions can be improved."
 else:
-    condition_msg = "The organism may be stressed."
+    condition_msg = "The microorganism may be under environmental stress."
 
 if growth_rate >= 0.8:
-    speed_msg = "Fast growth predicted."
+    speed_msg = "Fast growth is predicted under these conditions."
 elif growth_rate >= 0.45:
-    speed_msg = "Moderate growth predicted."
+    speed_msg = "Moderate growth is predicted under these conditions."
 else:
-    speed_msg = "Slow growth predicted."
+    speed_msg = "Slow growth is predicted under these conditions."
+
+i1, i2, i3, i4 = st.columns(4)
 
 with i1:
     st.markdown(f"""
@@ -422,7 +511,7 @@ with i1:
 with i2:
     st.markdown(f"""
     <div class="card">
-        <b>Growth Speed</b><br><br>
+        <b class="blue">Growth Speed</b><br><br>
         {speed_msg}
     </div>
     """, unsafe_allow_html=True)
@@ -431,7 +520,7 @@ with i3:
     st.markdown(f"""
     <div class="card">
         <b class="yellow">Biomass</b><br><br>
-        Maximum OD600 is predicted as {carrying_capacity:.2f}.
+        Maximum predicted OD600 is {carrying_capacity:.2f}.
     </div>
     """, unsafe_allow_html=True)
 
@@ -439,38 +528,26 @@ with i4:
     st.markdown(f"""
     <div class="card">
         <b class="pink">Recommendation</b><br><br>
-        Change temperature, pH, or nutrients to compare growth.
+        Compare different pH, temperature, and nutrient values to improve growth.
     </div>
     """, unsafe_allow_html=True)
 
+
 # -----------------------------
-# Condition suitability chart
+# Condition suitability
 # -----------------------------
 st.write("")
 st.markdown("### Condition Suitability")
 
-condition_fig = go.Figure(go.Bar(
-    x=[temp_factor, ph_factor, min(nutrient_factor, 1.0)],
-    y=["Temperature", "pH", "Nutrients"],
-    orientation="h",
-    marker_color=["#24d6ff", "#31e981", "#ffd34d"],
-    text=[
-        f"{temp_factor * 100:.0f}%",
-        f"{ph_factor * 100:.0f}%",
-        f"{min(nutrient_factor, 1.0) * 100:.0f}%"
-    ],
-    textposition="auto"
-))
-
-condition_fig.update_layout(
-    height=260,
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(5,9,20,0.65)",
-    font=dict(color="white"),
-    xaxis=dict(range=[0, 1], title="Suitability"),
-    yaxis=dict(title="")
+condition_fig = create_condition_chart(
+    params["temp_factor"],
+    params["ph_factor"],
+    params["nutrient_factor"]
 )
 
 st.plotly_chart(condition_fig, use_container_width=True)
 
-st.caption("Note: This is a student-level simulation model for learning purposes, not a real lab-validated prediction system.")
+st.caption(
+    "Note: This is a student-level simulation project for learning purposes. "
+    "It is not a real laboratory-validated prediction system."
+)
