@@ -2,178 +2,116 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-# =========================================================
-# PAGE CONFIG
-# =========================================================
+# =====================================================
+# PAGE
+# =====================================================
 
 st.set_page_config(
-    page_title="MicrobialAI NextGen",
+    page_title="MicrobialAI",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# =========================================================
-# CUSTOM CSS
-# =========================================================
+# =====================================================
+# CSS
+# =====================================================
 
 st.markdown("""
 <style>
 
+html, body, [class*="css"]{
+    font-family: 'Segoe UI', sans-serif;
+}
+
 [data-testid="stAppViewContainer"]{
-    background:
-    linear-gradient(
+    background: linear-gradient(
         135deg,
         #020617,
-        #071426,
+        #081224,
         #0f172a
     );
     color:white;
 }
 
-section[data-testid="stSidebar"]{
-    background:#050b16;
-    border-right:1px solid rgba(255,255,255,0.06);
-}
-
 .block-container{
-    padding-top:2rem;
+    padding-top:1rem;
     padding-bottom:1rem;
-    max-width:1500px;
+    max-width:1400px;
 }
 
-h1{
-    color:white;
-    font-size:40px !important;
-    font-weight:800;
-    margin-bottom:0px;
-}
-
-.metric-card{
+.card{
     background:rgba(255,255,255,0.04);
     border:1px solid rgba(255,255,255,0.06);
-    border-radius:16px;
-    padding:14px;
-    backdrop-filter:blur(10px);
+    border-radius:18px;
+    padding:18px;
 }
 
-.metric-title{
+.metric{
+    font-size:34px;
+    font-weight:700;
+    color:#67e8f9;
+}
+
+.metric-label{
     color:#94a3b8;
     font-size:14px;
-    margin-bottom:8px;
 }
 
-.metric-value{
+.title{
+    font-size:52px;
+    font-weight:800;
     color:#67e8f9;
-    font-size:24px;
-    font-weight:700;
 }
 
-.phase-card{
-    background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.05);
-    border-radius:12px;
-    padding:12px;
-    margin-bottom:10px;
+.subtitle{
+    color:#cbd5e1;
+    font-size:18px;
 }
 
-.insight-card{
+.small-card{
     background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.05);
     border-radius:14px;
     padding:14px;
-    text-align:center;
-}
-
-.big-glow{
-    color:#67e8f9;
-    text-shadow:0px 0px 18px rgba(0,255,255,0.5);
-}
-
-.small-text{
-    color:#cbd5e1;
-    font-size:15px;
+    border:1px solid rgba(255,255,255,0.05);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
-# DATABASE
-# =========================================================
+# =====================================================
+# DATA
+# =====================================================
 
 MICROBES = {
-
-    "Escherichia coli": {
-        "K": 1.0,
-        "r": 1.05,
-        "t0": 8,
-        "type": "Gram-negative bacterium"
-    },
-
-    "Bacillus subtilis": {
-        "K": 1.1,
-        "r": 0.9,
-        "t0": 10,
-        "type": "Gram-positive bacterium"
-    },
-
-    "Staphylococcus aureus": {
-        "K": 0.95,
-        "r": 0.8,
-        "t0": 12,
-        "type": "Gram-positive cocci"
-    },
-
-    "Pseudomonas aeruginosa": {
-        "K": 1.15,
-        "r": 0.7,
-        "t0": 14,
-        "type": "Gram-negative bacterium"
-    },
-
-    "Lactobacillus acidophilus": {
-        "K": 0.85,
-        "r": 0.65,
-        "t0": 16,
-        "type": "Lactic acid bacterium"
-    },
-
-    "Saccharomyces cerevisiae": {
-        "K": 0.9,
-        "r": 0.55,
-        "t0": 18,
-        "type": "Yeast"
-    }
+    "E. coli": [1.0,1.05,8],
+    "Bacillus subtilis": [1.1,0.9,10],
+    "Pseudomonas": [1.15,0.7,14],
+    "Yeast": [0.9,0.55,18]
 }
 
-# =========================================================
+# =====================================================
 # SIDEBAR
-# =========================================================
+# =====================================================
 
 with st.sidebar:
 
-    st.markdown("# 🧬 MicrobialAI")
-    st.caption("Growth Predictor")
-
-    st.markdown("---")
+    st.title("🧬 MicrobialAI")
 
     microbe = st.selectbox(
-        "Select Microorganism",
+        "Microorganism",
         list(MICROBES.keys())
     )
 
-    st.markdown("### Environmental Conditions")
-
     time = st.slider(
-        "Incubation Time (hours)",
+        "Time (hrs)",
         0,
         48,
         24
     )
 
     temp = st.slider(
-        "Temperature (°C)",
+        "Temperature",
         20,
         45,
         37
@@ -186,126 +124,108 @@ with st.sidebar:
         7.0
     )
 
-    nutrient = st.slider(
-        "Nutrient Concentration",
-        0.1,
-        2.0,
-        1.0
-    )
-
-# =========================================================
+# =====================================================
 # MODEL
-# =========================================================
+# =====================================================
 
-params = MICROBES[microbe]
+K,r,t0 = MICROBES[microbe]
 
-K = params["K"]
-r = params["r"]
-t0 = params["t0"]
-
-if temp < 30:
-    r *= 0.75
-
-elif temp > 40:
-    r *= 0.65
-
-if ph < 6 or ph > 8:
-    r *= 0.8
-
-K *= nutrient
-
-growth = K / (1 + np.exp(-r * (time - t0)))
-
-# Phase Logic
+growth = K / (
+    1 + np.exp(-r * (time - t0))
+)
 
 if time < 8:
-    phase = "Lag Phase"
+    phase = "Lag"
 
 elif time < 24:
-    phase = "Log Phase"
+    phase = "Log"
 
 elif time < 40:
-    phase = "Stationary Phase"
+    phase = "Stationary"
 
 else:
-    phase = "Death Phase"
+    phase = "Death"
 
-# =========================================================
-# MAIN LAYOUT
-# =========================================================
+# =====================================================
+# HEADER
+# =====================================================
 
-left, right = st.columns([4.5,1.5])
+st.markdown(
+    "<div class='title'>🧬 MicrobialAI</div>",
+    unsafe_allow_html=True
+)
 
-# =========================================================
-# LEFT
-# =========================================================
+st.markdown(
+    "<div class='subtitle'>AI-Assisted Microbial Growth Prediction Platform</div>",
+    unsafe_allow_html=True
+)
+
+st.write("")
+
+# =====================================================
+# TOP METRICS
+# =====================================================
+
+m1,m2,m3,m4 = st.columns(4)
+
+with m1:
+    st.markdown(f"""
+    <div class='card'>
+    <div class='metric-label'>Growth Phase</div>
+    <div class='metric'>{phase}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with m2:
+    st.markdown(f"""
+    <div class='card'>
+    <div class='metric-label'>Predicted OD600</div>
+    <div class='metric'>{round(growth,3)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with m3:
+    st.markdown(f"""
+    <div class='card'>
+    <div class='metric-label'>Growth Rate</div>
+    <div class='metric'>{r}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with m4:
+    st.markdown(f"""
+    <div class='card'>
+    <div class='metric-label'>Carrying Capacity</div>
+    <div class='metric'>{K}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.write("")
+
+# =====================================================
+# GRAPH + SIDE INFO
+# =====================================================
+
+left,right = st.columns([3.5,1])
+
+# =====================================================
+# GRAPH
+# =====================================================
 
 with left:
 
-    st.markdown(
-        "<h1>🧬 <span class='big-glow'>MicrobialAI</span></h1>",
-        unsafe_allow_html=True
-    )
+    t = np.linspace(0,48,500)
 
-    st.markdown(
-        "<div class='small-text'>AI-Assisted Microbial Growth Kinetics Platform</div>",
-        unsafe_allow_html=True
-    )
-
-    st.write("")
-
-    # METRICS
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">Growth Phase</div>
-            <div class="metric-value">{phase}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">Predicted OD600</div>
-            <div class="metric-value">{round(growth,3)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">Max OD (K)</div>
-            <div class="metric-value">{round(K,3)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">Growth Rate</div>
-            <div class="metric-value">{round(r,3)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.write("")
-
-    # GRAPH
-
-    t_values = np.linspace(0,48,500)
-
-    curve = K / (
-        1 + np.exp(-r * (t_values - t0))
+    y = K / (
+        1 + np.exp(-r * (t - t0))
     )
 
     fig = go.Figure()
 
     fig.add_trace(
         go.Scatter(
-            x=t_values,
-            y=curve,
+            x=t,
+            y=y,
             mode='lines',
             line=dict(
                 color='#38bdf8',
@@ -321,69 +241,21 @@ with left:
             y=[growth],
             mode='markers',
             marker=dict(
-                color='#22c55e',
-                size=12
+                size=12,
+                color='#22c55e'
             ),
-            name='Current Point'
+            name='Current'
         )
     )
 
-    # Phase zones
-
-    fig.add_vrect(
-        x0=0,
-        x1=10,
-        fillcolor="purple",
-        opacity=0.05,
-        line_width=0
-    )
-
-    fig.add_vrect(
-        x0=10,
-        x1=25,
-        fillcolor="blue",
-        opacity=0.05,
-        line_width=0
-    )
-
-    fig.add_vrect(
-        x0=25,
-        x1=40,
-        fillcolor="green",
-        opacity=0.05,
-        line_width=0
-    )
-
-    fig.add_vrect(
-        x0=40,
-        x1=48,
-        fillcolor="red",
-        opacity=0.05,
-        line_width=0
-    )
-
     fig.update_layout(
-
-        template="plotly_dark",
-
-        paper_bgcolor="rgba(0,0,0,0)",
-
-        plot_bgcolor="rgba(0,0,0,0)",
-
-        height=480,
-
-        margin=dict(
-            l=10,
-            r=10,
-            t=30,
-            b=10
-        ),
-
+        template='plotly_dark',
+        height=500,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=10,r=10,t=10,b=10),
         xaxis_title="Time (hours)",
-
-        yaxis_title="Optical Density (OD600)",
-
-        font=dict(size=14)
+        yaxis_title="OD600"
     )
 
     st.plotly_chart(
@@ -391,104 +263,72 @@ with left:
         use_container_width=True
     )
 
-    # INSIGHTS
-
-    i1, i2, i3, i4 = st.columns(4)
-
-    with i1:
-        st.markdown("""
-        <div class="insight-card">
-        <h4>🧪 Optimal</h4>
-        <p>Conditions favorable.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with i2:
-        st.markdown("""
-        <div class="insight-card">
-        <h4>⚡ Fast Growth</h4>
-        <p>Rapid exponential growth.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with i3:
-        st.markdown("""
-        <div class="insight-card">
-        <h4>📈 Biomass</h4>
-        <p>High carrying capacity.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with i4:
-        st.markdown("""
-        <div class="insight-card">
-        <h4>💡 Recommendation</h4>
-        <p>Maintain current setup.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# =========================================================
-# RIGHT PANEL
-# =========================================================
+# =====================================================
+# SIDE PANEL
+# =====================================================
 
 with right:
 
-    st.markdown("### Growth Phases")
-
     st.markdown("""
-    <div class="phase-card">
-    <b>🟣 Lag Phase</b><br>
+    <div class='small-card'>
+    <h4>🟣 Lag Phase</h4>
     Adaptation stage
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="phase-card">
-    <b>🟢 Log Phase</b><br>
-    Exponential division
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="phase-card">
-    <b>🟡 Stationary</b><br>
-    Nutrient limitation
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="phase-card">
-    <b>🔴 Death Phase</b><br>
-    Cell decline
     </div>
     """, unsafe_allow_html=True)
 
     st.write("")
 
-    st.markdown("### Model Summary")
-
-    st.markdown(f"""
-    <div class="phase-card">
-
-    <p><b>Model:</b> Logistic Growth</p>
-
-    <p><b>Growth Rate:</b> {round(r,3)}</p>
-
-    <p><b>Carrying Capacity:</b> {round(K,3)}</p>
-
-    <p><b>Lag Time:</b> {t0} hrs</p>
-
-    <p><b>Type:</b> {params['type']}</p>
-
+    st.markdown("""
+    <div class='small-card'>
+    <h4>🟢 Log Phase</h4>
+    Exponential growth
     </div>
     """, unsafe_allow_html=True)
 
-# =========================================================
-# FOOTER
-# =========================================================
+    st.write("")
 
-st.markdown("---")
+    st.markdown("""
+    <div class='small-card'>
+    <h4>🟡 Stationary</h4>
+    Nutrient depletion
+    </div>
+    """, unsafe_allow_html=True)
 
-st.caption(
-    "MicrobialAI • Computational Microbiology Platform"
-)
+    st.write("")
+
+    st.markdown("""
+    <div class='small-card'>
+    <h4>🔴 Death</h4>
+    Cell decline
+    </div>
+    """, unsafe_allow_html=True)
+
+# =====================================================
+# INSIGHTS
+# =====================================================
+
+st.write("")
+st.subheader("Growth Insights")
+
+i1,i2,i3 = st.columns(3)
+
+with i1:
+    st.markdown("""
+    <div class='small-card'>
+    ⚡ Fast exponential growth predicted
+    </div>
+    """, unsafe_allow_html=True)
+
+with i2:
+    st.markdown("""
+    <div class='small-card'>
+    🧪 Conditions suitable for biomass production
+    </div>
+    """, unsafe_allow_html=True)
+
+with i3:
+    st.markdown("""
+    <div class='small-card'>
+    📈 Logistic model predicts stable carrying capacity
+    </div>
+    """, unsafe_allow_html=True)
