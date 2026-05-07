@@ -547,7 +547,4 @@ condition_fig = create_condition_chart(
 
 st.plotly_chart(condition_fig, use_container_width=True)
 
-st.caption(
-    "Note: This is a student-level simulation project for learning purposes. "
-    "It is not a real laboratory-validated prediction system."
-)
+
