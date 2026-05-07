@@ -10,7 +10,7 @@ import streamlit as st
 # Page setup
 # -----------------------------
 st.set_page_config(
-    page_title="MicrobialAI Growth Predictor",
+    page_title="Microbial AI Growth Predictor",
     page_icon="🧬",
     layout="wide"
 )
